@@ -31,3 +31,9 @@
 # Debug files
 *.dSYM/
 *.su
+
+# Arquivos de backup
+*.swp
+
+# Pasta de exemplos de sala
+exemplos
