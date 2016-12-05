@@ -5,8 +5,7 @@ int Inicializar()
 	int i, err_retorno;
 	pthread_attr_t attr;
 
-	pthread_mutex_init(&clientes_a_chegar_mutex, NULL);
-	clientes_a_chegar = N_CLIENTES;
+	sem_init(&clientes_a_chegar, 0, N_CLIENTES);
 
 	pthread_attr_init(&attr);
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_PROCESS);
@@ -44,20 +43,7 @@ void *Cliente(void *arg)
 
 	while(1)
 	{
-		pthread_mutex_lock(&clientes_a_chegar_mutex);
-
-			if(clientes_a_chegar > 0)
-			{
-				clientes_a_chegar -= 1;
-				pthread_mutex_unlock(&clientes_a_chegar_mutex);
-			}
-			else
-			{
-				pthread_mutex_unlock(&clientes_a_chegar_mutex);
-				break;
-			}
-
-
+		sem_wait(&clientes_a_chegar);
 		menor = Menor_Fila();
 		pthread_mutex_lock(&fila_mut[menor]);
 		fila[menor] += 1;
@@ -72,6 +58,8 @@ void *Caixa(void *arg)
 	int tid = (int) arg;
 	int i, fila_atual, fila_escolhida;
 	int clientes_atendidos = 0;
+	uint32_t tempo;
+	int clientes_a_chegar_i;
 
 	while(1)
 	{
@@ -83,6 +71,7 @@ void *Caixa(void *arg)
 			pthread_mutex_lock(&fila_mut[fila_atual]);
 				if(fila[fila_atual] > 0)
 				{
+					for(tempo = 0; tempo < 0xFFFFFF; ++tempo);
 					fila[fila_atual] -= 1;
 					pthread_mutex_unlock(&fila_mut[fila_atual]);
 					fila_escolhida = fila_atual;
@@ -96,19 +85,27 @@ void *Caixa(void *arg)
 			if(fila_atual >= N_FILAS)
 				fila_atual = 0;
 
+
 		} while (fila_atual != tid);
 
 
 		if(fila_escolhida == -1)
 		{
-			if(clientes_a_chegar == 0)
+			sem_getvalue(&clientes_a_chegar, &clientes_a_chegar_i);
+			if(clientes_a_chegar_i == 0)
 				break;
 			else
 				continue;
 		}
+		else if(ECHO && clientes_atendidos % 100 == 0)
+		{
+			printf("%d clientes atendidos pelo caixa %d ateh agora\n", clientes_atendidos, tid);
+		}
 	}
 
-	printf("Caixa %d atendeu %d clientes. Fechando agora.\n", tid, clientes_atendidos);
+	if(ECHO)
+		printf("Caixa %d atendeu %d clientes. Fechando agora.\n", tid, clientes_atendidos);
+
 	pthread_exit(NULL);
 }
 
@@ -118,12 +115,12 @@ void Encerrar()
 	
 	for(i = 0; i < N_FILAS; ++i)
 	{
-		pthread_join(cliente_thread[i], NULL);
+		pthread_join(caixa_thread[i], NULL);
 	}
 
 	for(i = 0; i < N_FILAS; ++i)
 	{
-		pthread_join(caixa_thread[i], NULL);
+		pthread_cancel(cliente_thread[i]);
 	}
 }
 
