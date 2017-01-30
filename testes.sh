@@ -1,9 +1,9 @@
-for try in {1..3}
-do
-	/usr/bin/time -v -o ./testes/teste_sequencial_caso_${try}.txt ./bin/supermercado_sequencial.out
+mkdir -p ./testes
 
-	for cores in 3 7 15
-	do
-		taskset ${cores} /usr/bin/time -v -o ./testes/teste_taskmask${cores}_caso_${try}.txt ./bin/supermercado.out
-	done
+for icaso in {1..20}
+do
+	taskset -c 0 /usr/bin/time -v -o ./testes/teste_sequencial_caso_${icaso}.txt ./bin/supermercado_sequencial.out
+	taskset -c 0,1 /usr/bin/time -v -o ./testes/teste_2nucleos_caso_${icaso}.txt ./bin/supermercado.out
+	taskset -c 0,1,2 /usr/bin/time -v -o ./testes/teste_3nucleos_caso_${icaso}.txt ./bin/supermercado.out
+	taskset -c 0,1,2,3 /usr/bin/time -v -o ./testes/teste_4nucleos_caso_${icaso}.txt ./bin/supermercado.out
 done

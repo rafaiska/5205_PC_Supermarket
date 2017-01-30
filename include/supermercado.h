@@ -13,17 +13,17 @@
 //saida padrao
 int ECHO;
 
-//Vetor que armazena o numero de clientes em cada fila,
-//bem como os mutexes associados a essas variaveis
-int fila[N_FILAS];
-pthread_mutex_t fila_mut[N_FILAS];
+//Numero de clientes em cada fila, representado por semaforos
+sem_t fila[N_FILAS];
 
 //Threads geradores de clientes e threads de caixa
 pthread_t cliente_thread[N_FILAS];
 pthread_t caixa_thread[N_FILAS];
 
-//Numero de clientes a chegar nas filas, representado por um semaforo
-sem_t clientes_a_chegar;
+//Numero de clientes a chegar nas filas, bem como um mutex para
+//sincronizacao
+int clientes_a_chegar;
+pthread_mutex_t clientes_a_chegar_mutex;
 
 int Inicializar();		//Inicializa componentes do problema
 void *Cliente(void *arg);	//Funcao paralela que adiciona clientes na fila

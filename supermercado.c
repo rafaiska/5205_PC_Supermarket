@@ -5,20 +5,19 @@ int Inicializar()
 	int i, err_retorno;
 	pthread_attr_t attr;
 
-	sem_init(&clientes_a_chegar, 0, N_CLIENTES);
+	pthread_mutex_init(&clientes_a_chegar_mutex, NULL);
+	clientes_a_chegar = N_CLIENTES;
 
 	pthread_attr_init(&attr);
 	pthread_attr_setscope(&attr, PTHREAD_SCOPE_PROCESS);
 
 	for(i=0; i<N_FILAS; ++i)
 	{
-		fila[i] = 0;
+		sem_init(&fila[i], 0, 0);
 	}
 
 	for(i=0; i<N_FILAS; i++)
 	{
-		pthread_mutex_init(&fila_mut[i], NULL);
-
         	err_retorno = pthread_create(&cliente_thread[i], &attr, Cliente, (void *)i);
 
 		if(err_retorno)
@@ -43,11 +42,22 @@ void *Cliente(void *arg)
 
 	while(1)
 	{
-		sem_wait(&clientes_a_chegar);
+		pthread_mutex_lock(&clientes_a_chegar_mutex);
+
+			if(clientes_a_chegar > 0)
+			{
+				clientes_a_chegar -= 1;
+				pthread_mutex_unlock(&clientes_a_chegar_mutex);
+			}
+			else
+			{
+				pthread_mutex_unlock(&clientes_a_chegar_mutex);
+				break;
+			}
+
+
 		menor = Menor_Fila();
-		pthread_mutex_lock(&fila_mut[menor]);
-		fila[menor] += 1;
-		pthread_mutex_unlock(&fila_mut[menor]);
+		sem_post(&fila[menor]);
 	}
 
 	pthread_exit(NULL);
@@ -59,7 +69,7 @@ void *Caixa(void *arg)
 	int i, fila_atual, fila_escolhida;
 	int clientes_atendidos = 0;
 	uint32_t tempo;
-	int clientes_a_chegar_i;
+	int npessoas;
 
 	while(1)
 	{
@@ -68,34 +78,37 @@ void *Caixa(void *arg)
 	
 		do
 		{
-			pthread_mutex_lock(&fila_mut[fila_atual]);
-				if(fila[fila_atual] > 0)
-				{
-					for(tempo = 0; tempo < 0xFFFFFF; ++tempo);
-					fila[fila_atual] -= 1;
-					pthread_mutex_unlock(&fila_mut[fila_atual]);
-					fila_escolhida = fila_atual;
-					++clientes_atendidos;
-					break;
-				}
-			pthread_mutex_unlock(&fila_mut[fila_atual]);
+			sem_getvalue(&fila[fila_atual], &npessoas);
+			if(npessoas > 0)
+			{
+				sem_wait(&fila[fila_atual]);
+				for(tempo = 0; tempo < 0xFFFFFF; ++tempo);
+				fila_escolhida = fila_atual;
+				++clientes_atendidos;
+				break;
+			}
 
 			++fila_atual;
 
 			if(fila_atual >= N_FILAS)
 				fila_atual = 0;
 
-
 		} while (fila_atual != tid);
 
 
 		if(fila_escolhida == -1)
 		{
-			sem_getvalue(&clientes_a_chegar, &clientes_a_chegar_i);
-			if(clientes_a_chegar_i == 0)
+			pthread_mutex_lock(&clientes_a_chegar_mutex);
+			if(clientes_a_chegar == 0)
+			{
+				pthread_mutex_unlock(&clientes_a_chegar_mutex);
 				break;
+			}
 			else
+			{
+				pthread_mutex_unlock(&clientes_a_chegar_mutex);
 				continue;
+			}
 		}
 		else if(ECHO && clientes_atendidos % 100 == 0)
 		{
@@ -115,27 +128,32 @@ void Encerrar()
 	
 	for(i = 0; i < N_FILAS; ++i)
 	{
-		pthread_join(caixa_thread[i], NULL);
+		pthread_join(cliente_thread[i], NULL);
 	}
 
 	for(i = 0; i < N_FILAS; ++i)
 	{
-		pthread_cancel(cliente_thread[i]);
+		pthread_join(caixa_thread[i], NULL);
 	}
 }
 
 int Menor_Fila()
 {
 	int i;
-	int menor_v = fila[0];
+	int v;
 	int menor_i = 0;
+	int menor_v;
+
+	sem_getvalue(&fila[0], &menor_v);
 
 	for(i=1; i < N_FILAS; ++i)
 	{
-		if(fila[i] < menor_v)
+		sem_getvalue(&fila[i], &v);
+ 
+		if(v < menor_v)
 		{
 			menor_i = i;
-			menor_v = fila[i];
+			sem_getvalue(&fila[i], &menor_v);
 		}
 	}
 

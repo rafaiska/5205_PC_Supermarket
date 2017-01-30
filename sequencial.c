@@ -1,8 +1,18 @@
-#include "supermercado.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+
+#define N_CLIENTES 6400
+#define N_FILAS 8
+
+int ECHO;
 
 int clientes_a_chegar_i;
+int fila[N_FILAS];
+
+int Cliente_Seq(int tid);
+int Caixa_Seq(int tid);
+int Menor_Fila();
 
 int Cliente_Seq(int tid)
 {
@@ -23,7 +33,7 @@ int Cliente_Seq(int tid)
 int Caixa_Seq(int tid)
 {
 	int i, fila_atual, fila_escolhida;
-	uint32_t tempo;
+	long tempo;
 
 	fila_escolhida = -1;
 	fila_atual = tid;	
@@ -48,6 +58,24 @@ int Caixa_Seq(int tid)
 	return fila_escolhida;
 }
 
+int Menor_Fila()
+{
+	int i;
+	int menor_i = 0;
+	int menor_v = fila[0];
+
+	for(i=1; i < N_FILAS; ++i)
+	{
+		if(fila[i] < menor_v)
+		{
+			menor_i = i;
+			menor_v = fila[i];
+		}
+	}
+
+	return menor_i;
+}
+
 int main(int argc, char *argv[])
 {
 	int i;
@@ -57,7 +85,7 @@ int main(int argc, char *argv[])
 	clientes_a_chegar_i = N_CLIENTES;
 	ECHO = 0;
 
-	for(int i=0; i<argc; ++i)
+	for(i=0; i<argc; ++i)
 	{
 		if(!strcmp(argv[i],"--echo"))
 			ECHO = 1;
